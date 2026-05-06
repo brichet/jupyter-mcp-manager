@@ -1,0 +1,15 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: 3bfdd89
+_src_path: ../extension-template
+author_email: jupyter@googlegroups.com
+author_name: Jupyter Development Team
+has_ai_rules: false
+has_binder: false
+has_settings: false
+kind: frontend-and-server
+labextension_name: jupyter-mcp-manager
+project_short_description: A JupyterLab extension to manage MCP servers.
+python_name: jupyter_mcp_manager
+repository: https://github.com/brichet/jupyter-mcp-manager
+test: true
+
