@@ -1,0 +1,41 @@
+{
+  "mcp_servers": [
+    {
+      "name": "filesystem",
+      "type": "http",
+      "url": "http://localhost:8080",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer your-api-key"
+        }
+      ]
+    },
+    {
+      "name": "git",
+      "command": "/usr/bin/mcp-server-git",
+      "args": ["--repo", "/path/to/repo"],
+      "env": [
+        {
+          "name": "GIT_AUTHOR_NAME",
+          "value": "Your Name"
+        },
+        {
+          "name": "GIT_AUTHOR_EMAIL",
+          "value": "your@email.com"
+        }
+      ]
+    },
+    {
+      "name": "readwise",
+      "type": "http",
+      "url": "https://api.readwise.io/v2/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer your-readwise-token"
+        }
+      ]
+    }
+  ]
+}
