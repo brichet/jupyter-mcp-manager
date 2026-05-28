@@ -31,7 +31,7 @@ interface IMcpServerPanelProps {
 interface IServerTableProps {
   servers: IMcpServerEntry[];
   onDelete: (name: string) => void;
-  onSave: (server: IMcpServer) => void;
+  onSave: (server: IMcpServerEntry) => void;
   trans: IRenderMime.TranslationBundle;
 }
 
@@ -40,7 +40,7 @@ interface IRowProps {
   isEditing: boolean;
   isNew?: boolean;
   onStartEdit: () => void;
-  onSave: (server: IMcpServer) => void;
+  onSave: (server: IMcpServerEntry) => void;
   onCancel: () => void;
   onDelete: (name: string) => void;
   onOpenAdvanced: () => void;
@@ -50,7 +50,7 @@ interface IRowProps {
 interface IAdvancedSettingsPopupProps {
   server: IMcpServerEntry;
   onClose: () => void;
-  onSave: (server: IMcpServer) => void;
+  onSave: (server: IMcpServerEntry) => void;
   trans: IRenderMime.TranslationBundle;
 }
 
@@ -59,6 +59,8 @@ const EMPTY_STDIO: IMcpServerEntry = {
   type: 'stdio',
   command: '',
   editable: true,
+  deletable: true,
+  source: 'settings',
   config_file: ''
 };
 
@@ -92,11 +94,9 @@ const AdvancedSettingsPopup: React.FC<IAdvancedSettingsPopupProps> = ({
 
   const handleSave = () => {
     if (stdioServer) {
-      const { editable: _e, config_file: _c, ...base } = stdioServer;
-      onSave({ ...base, args, env });
+      onSave({ ...stdioServer, args, env });
     } else if (httpServer) {
-      const { editable: _e, config_file: _c, ...base } = httpServer;
-      onSave({ ...base, headers });
+      onSave({ ...httpServer, headers });
     }
   };
 
@@ -125,9 +125,12 @@ const AdvancedSettingsPopup: React.FC<IAdvancedSettingsPopupProps> = ({
   const removeHeader = (i: number) =>
     setHeaders(headers.filter((_, j) => j !== i));
 
-  const originLabel = isEditable
-    ? trans.__('User config')
-    : trans.__('System config');
+  const originLabel =
+    server.source === 'settings'
+      ? trans.__('JupyterLab Settings')
+      : isEditable
+        ? trans.__('User config')
+        : trans.__('System config');
 
   return (
     <div className="jp-mcp-popup-overlay" onClick={onClose}>
@@ -325,6 +328,8 @@ const Row: React.FC<IRowProps> = ({
         type: 'stdio',
         command: '',
         editable: draft.editable,
+        deletable: draft.deletable,
+        source: draft.source,
         config_file: draft.config_file
       });
     } else {
@@ -333,6 +338,8 @@ const Row: React.FC<IRowProps> = ({
         type: 'http',
         url: '',
         editable: draft.editable,
+        deletable: draft.deletable,
+        source: draft.source,
         config_file: draft.config_file
       });
     }
@@ -340,8 +347,7 @@ const Row: React.FC<IRowProps> = ({
 
   const handleSave = () => {
     if (isNew && !draft.name) return;
-    const { editable: _e, config_file: _c, ...serverData } = draft;
-    onSave(serverData as IMcpServer);
+    onSave(draft);
   };
 
   if (!isEditing) {
@@ -367,7 +373,7 @@ const Row: React.FC<IRowProps> = ({
           <Button
             onClick={() => onDelete(server.name)}
             title={trans.__('Delete')}
-            style={{ visibility: server.editable ? 'visible' : 'hidden' }}
+            style={{ visibility: server.deletable ? 'visible' : 'hidden' }}
           >
             <deleteIcon.react />
           </Button>
@@ -460,12 +466,12 @@ const ServerTable: React.FC<IServerTableProps> = ({
     setIsAdding(false);
   };
 
-  const handleSave = (server: IMcpServer) => {
+  const handleSave = (server: IMcpServerEntry) => {
     onSave(server);
     stopEditing();
   };
 
-  const handleAdvancedSave = (server: IMcpServer) => {
+  const handleAdvancedSave = (server: IMcpServerEntry) => {
     onSave(server);
     setAdvancedServer(null);
   };
@@ -549,13 +555,41 @@ export const McpServersSettings: React.FC<IMcpServerPanelProps> = ({
 
   useEffect(() => {
     loadServers();
+    settings.changed.connect(loadServers);
+    return () => {
+      settings.changed.disconnect(loadServers);
+    };
   }, []);
 
   const loadServers = async () => {
     try {
       setLoading(true);
-      const data = await requestAPI<any>('servers', serverSettings);
-      setServers(data.mcp_servers);
+
+      const mcpSettings = settings.get('mcpSettings').composite as {
+        mcp_servers?: IMcpServer[];
+      } | null;
+      const settingsServers: IMcpServerEntry[] = (
+        mcpSettings?.mcp_servers ?? []
+      ).map(s => ({
+        ...s,
+        editable: true,
+        deletable: true,
+        source: 'settings' as const,
+        config_file: ''
+      }));
+
+      let backendServers: IMcpServerEntry[] = [];
+      try {
+        const data = await requestAPI<any>('servers', serverSettings);
+        const settingsNames = new Set(settingsServers.map(s => s.name));
+        backendServers = (data.mcp_servers as IMcpServerEntry[])
+          .filter(s => !settingsNames.has(s.name))
+          .map(s => ({ ...s, deletable: false, source: 'backend' as const }));
+      } catch {
+        // Backend unavailable (e.g. JupyterLite) — use settings only.
+      }
+
+      setServers([...settingsServers, ...backendServers]);
       setError(null);
     } catch (err) {
       setError(trans.__('Failed to load MCP servers'));
@@ -567,10 +601,19 @@ export const McpServersSettings: React.FC<IMcpServerPanelProps> = ({
 
   const handleDelete = async (serverName: string) => {
     try {
-      await requestAPI<any>(
-        `servers?name=${encodeURIComponent(serverName)}`,
-        serverSettings,
-        { method: 'DELETE' }
+      const existing = servers.find(s => s.name === serverName);
+      if (!existing || existing.source !== 'settings') {
+        return;
+      }
+      const current = settings.get('mcpSettings').composite as {
+        mcp_servers?: IMcpServer[];
+      } | null;
+      const updated = (current?.mcp_servers ?? []).filter(
+        s => s.name !== serverName
+      );
+      await settings.set(
+        'mcpSettings',
+        JSON.parse(JSON.stringify({ mcp_servers: updated }))
       );
       await loadServers();
     } catch (err) {
@@ -579,13 +622,36 @@ export const McpServersSettings: React.FC<IMcpServerPanelProps> = ({
     }
   };
 
-  const handleSave = async (server: IMcpServer) => {
+  const handleSave = async (entry: IMcpServerEntry) => {
     try {
-      await requestAPI<any>('servers', serverSettings, {
-        method: 'PUT',
-        body: JSON.stringify(server),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const {
+        editable: _e,
+        deletable: _d,
+        source,
+        config_file: _c,
+        ...server
+      } = entry;
+      if (source === 'backend') {
+        await requestAPI<any>('servers', serverSettings, {
+          method: 'PUT',
+          body: JSON.stringify(server),
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else {
+        const current = settings.get('mcpSettings').composite as {
+          mcp_servers?: IMcpServer[];
+        } | null;
+        const list = current?.mcp_servers ?? [];
+        const idx = list.findIndex(s => s.name === server.name);
+        const updated =
+          idx >= 0
+            ? list.map((s, i) => (i === idx ? server : s))
+            : [...list, server];
+        await settings.set(
+          'mcpSettings',
+          JSON.parse(JSON.stringify({ mcp_servers: updated }))
+        );
+      }
       await loadServers();
     } catch (err) {
       setError(trans.__('Failed to save server'));
