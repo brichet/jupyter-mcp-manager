@@ -123,6 +123,17 @@ class McpServersHandler(APIHandler):
             self.finish(json.dumps({"error": "Failed to delete server"}))
 
 
+class McpNotifyHandler(APIHandler):
+    """Handler for notifying the manager that lab settings have changed."""
+
+    @tornado.web.authenticated
+    async def post(self):
+        """Notify the manager that JupyterLab settings changed and trigger observers."""
+        manager: McpServerManager = self.settings["mcp_manager"]
+        await manager.notify_observers()
+        self.finish(json.dumps({"status": "ok"}))
+
+
 class McpServerHandler(APIHandler):
     """Handler for getting a specific MCP server by name."""
 

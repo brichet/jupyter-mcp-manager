@@ -1,9 +1,10 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 
+import asyncio
 import json
 import os
-from typing import List, Optional, Union
+from typing import Awaitable, Callable, List, Optional, Union
 
 from jupyter_core.paths import jupyter_config_path, jupyter_config_dir
 from jupyterlab_server.settings_utils import get_settings
@@ -55,8 +56,11 @@ class McpServerManager:
         # Use Jupyter's config directories
         self.config_dirs = jupyter_config_path()
 
-        # Cache for loaded settings
-        self._settings_cache: Optional[McpSettings] = None
+        self._config_file_cache: Optional[McpSettings] = None
+        self._all_servers_cache: Optional[McpSettings] = None
+
+        # Observers notified when lab settings change
+        self._observers: List[Callable[[], Union[None, Awaitable[None]]]] = []
 
     def _get_config_file_paths(self) -> List[str]:
         """Get all possible config file paths to check."""
@@ -134,7 +138,7 @@ class McpServerManager:
                         app_settings_dir=app_settings_dir,
                         schemas_dir=schemas_dir,
                         settings_dir=user_settings_dir,
-                        schema_name="jupyter-mcp-manager:plugin",
+                        schema_name="jupyter-mcp-manager:manager",
                         labextensions_path=labextensions_path,
                         overrides=None,
                     )
@@ -182,7 +186,8 @@ class McpServerManager:
 
     def _load_all_configs(self) -> dict:
         """Load and merge all configuration sources including lab settings."""
-        configs = [self._load_config_file_servers()]
+        config_file_servers = [s.model_dump() for s in self.get_config_file_servers()]
+        configs = [{"mcp_servers": config_file_servers}]
         lab_settings = self._load_lab_settings()
         if lab_settings:
             configs.append(lab_settings)
@@ -194,42 +199,30 @@ class McpServerManager:
         Used by the REST API so that lab-settings servers are managed solely
         by the frontend via the JupyterLab settings registry.
         """
+        if self._config_file_cache is not None:
+            return self._config_file_cache.mcp_servers
         try:
-            return McpSettings(**self._load_config_file_servers()).mcp_servers
+            self._config_file_cache = McpSettings(**self._load_config_file_servers())
+            return self._config_file_cache.mcp_servers
         except Exception:
             return []
 
     def get_settings(self) -> McpSettings:
-        """
-        Get the MCP settings by loading and merging all configuration sources.
-
-        Returns:
-            McpSettings: The merged MCP server configuration
-        """
-        if self._settings_cache is not None:
-            return self._settings_cache
-
-        merged_config = self._load_all_configs()
-
-        # Validate and parse the configuration
+        """Get MCP settings merged from all sources."""
+        if self._all_servers_cache is not None:
+            return self._all_servers_cache
         try:
-            settings = McpSettings(**merged_config)
-            self._settings_cache = settings
-
+            self._all_servers_cache = McpSettings(**self._load_all_configs())
             if self.log:
-                self.log.info(
-                    f"Loaded MCP settings with {len(settings.mcp_servers)} servers"
-                )
-
-            return settings
+                self.log.info(f"Loaded {len(self._all_servers_cache.mcp_servers)} MCP servers")
+            return self._all_servers_cache
         except Exception as e:
             if self.log:
                 self.log.error(f"Failed to parse MCP configuration: {e}")
-            # Return empty settings on error
             return McpSettings(mcp_servers=[])
 
     def get_servers(self) -> List[Union[McpServerStdio, McpServerHttp]]:
-        """Get the list of configured MCP servers."""
+        """Get all configured MCP servers merged from all sources."""
         return self.get_settings().mcp_servers
 
     def get_server_by_name(self, name: str) -> Optional[Union[McpServerStdio, McpServerHttp]]:
@@ -240,10 +233,34 @@ class McpServerManager:
         return None
 
     def clear_cache(self) -> None:
-        """Clear the settings cache so next access will reload from disk."""
-        self._settings_cache = None
+        """Clear all caches so next access will reload from disk."""
+        self._config_file_cache = None
+        self._all_servers_cache = None
         if self.log:
             self.log.info("MCP server manager cache cleared")
+
+    def add_observer(self, callback: Callable[[], Union[None, Awaitable[None]]]) -> None:
+        """Register a callback to be called when lab settings change."""
+        if callback not in self._observers:
+            self._observers.append(callback)
+
+    def remove_observer(self, callback: Callable[[], Union[None, Awaitable[None]]]) -> None:
+        """Unregister a previously registered callback."""
+        try:
+            self._observers.remove(callback)
+        except ValueError:
+            pass
+
+    async def notify_observers(self) -> None:
+        """Call all registered observers, awaiting async ones."""
+        for callback in list(self._observers):
+            try:
+                result = callback()
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception as e:
+                if self.log:
+                    self.log.error(f"MCP observer error: {e}")
 
     def add_config_dir(self, directory: str) -> None:
         """Add a directory to search for configuration files."""
