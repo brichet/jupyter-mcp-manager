@@ -2,6 +2,27 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.2.0
+
+([Full Changelog](https://github.com/brichet/jupyter-mcp-manager/compare/v0.1.2...499dec61decf01d5a20e26fa6c477b23e007eb07))
+
+### Enhancements made
+
+- Update UI of MCP servers settings [#14](https://github.com/brichet/jupyter-mcp-manager/pull/14) ([@brichet](https://github.com/brichet))
+- Allow disabling an MCP server from the settings UI [#13](https://github.com/brichet/jupyter-mcp-manager/pull/13) ([@brichet](https://github.com/brichet))
+- Rethink the logic about reading and writing settings [#12](https://github.com/brichet/jupyter-mcp-manager/pull/12) ([@brichet](https://github.com/brichet))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/brichet/jupyter-mcp-manager/graphs/contributors?from=2026-06-05&to=2026-07-07&type=c))
+
+@brichet ([activity](https://github.com/search?q=repo%3Abrichet%2Fjupyter-mcp-manager+involves%3Abrichet+updated%3A2026-06-05..2026-07-07&type=Issues))
+
+<!-- <END NEW CHANGELOG ENTRY> -->
+
 ## 0.1.2
 
 ([Full Changelog](https://github.com/brichet/jupyter-mcp-manager/compare/v0.1.1...94ba8f757a9722bdf5970cd1503afff0d22891eb))
@@ -23,8 +44,6 @@ See [our definition of contributors](https://github-activity.readthedocs.io/en/l
 ([GitHub contributors page for this release](https://github.com/brichet/jupyter-mcp-manager/graphs/contributors?from=2026-06-04&to=2026-06-05&type=c))
 
 @brichet ([activity](https://github.com/search?q=repo%3Abrichet%2Fjupyter-mcp-manager+involves%3Abrichet+updated%3A2026-06-04..2026-06-05&type=Issues))
-
-<!-- <END NEW CHANGELOG ENTRY> -->
 
 ## 0.1.1
 
