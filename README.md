@@ -22,7 +22,7 @@ This extension manages the MCP server configurations that other JupyterLab exten
   - JupyterLab Settings UI (persisted in browser)
   - JSON configuration files in Jupyter config directories (`~/.jupyter/mcp_servers.json`)
   - adding MCP servers in the manager server side (for extensions)
-- **Environment Variables & Headers**: Set custom environment variables for stdio servers and HTTP headers for HTTP servers
+- **Environment Variables & Headers**: Set HTTP headers for HTTP servers and custom environment variables for stdio servers
 - **Real-time Updates**: Automatic synchronization between frontend settings and backend configuration
 
 ## Requirements
@@ -57,23 +57,32 @@ You can also configure MCP servers by creating a `mcp_servers.json` file in your
 {
   "mcp_servers": [
     {
+      "name": "my-http-server",
+      "type": "http",
+      "url": "http://localhost:8080",
+      "headers": [{ "name": "Authorization", "value": "Bearer token" }]
+    },
+    {
       "name": "my-stdio-server",
       "type": "stdio",
       "command": "/path/to/mcp-server-executable",
       "args": ["--option1", "value1"],
       "env": [{ "name": "ENV_VAR", "value": "value" }]
-    },
-    {
-      "name": "my-http-server",
-      "type": "http",
-      "url": "http://localhost:8080",
-      "headers": [{ "name": "Authorization", "value": "Bearer token" }]
     }
   ]
 }
 ```
 
 ### Server Configuration Options
+
+#### HTTP Server (Remote Endpoint)
+
+| Field     | Required | Description                                          |
+| --------- | -------- | ---------------------------------------------------- |
+| `name`    | Yes      | Unique identifier for the server                     |
+| `type`    | Yes      | Must be `"http"`                                     |
+| `url`     | Yes      | URL of the MCP server endpoint                       |
+| `headers` | No       | Array of HTTP headers (each with `name` and `value`) |
 
 #### Stdio Server (Local Executable)
 
@@ -84,15 +93,6 @@ You can also configure MCP servers by creating a `mcp_servers.json` file in your
 | `command` | Yes      | Path to the MCP server executable                             |
 | `args`    | No       | Array of command-line arguments                               |
 | `env`     | No       | Array of environment variables (each with `name` and `value`) |
-
-#### HTTP Server (Remote Endpoint)
-
-| Field     | Required | Description                                          |
-| --------- | -------- | ---------------------------------------------------- |
-| `name`    | Yes      | Unique identifier for the server                     |
-| `type`    | Yes      | Must be `"http"`                                     |
-| `url`     | Yes      | URL of the MCP server endpoint                       |
-| `headers` | No       | Array of HTTP headers (each with `name` and `value`) |
 
 ## Uninstall
 
