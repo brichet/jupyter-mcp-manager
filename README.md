@@ -6,6 +6,8 @@
 
 This extension provides a user interface and backend infrastructure to configure and manage MCP servers directly within JupyterLab. It allows you to define which MCP servers are available for use by other JupyterLab extensions or AI assistants.
 
+![MCP manager settings](./MCP-manager-settings-panel.png)
+
 ## What is MCP?
 
 The **Model Context Protocol (MCP)** is an open standard that enables AI assistants and other clients to interact with various data sources, tools, and services through a unified interface. MCP servers expose resources, tools, and prompts that AI models can query and use during conversations.
@@ -14,8 +16,8 @@ This extension manages the MCP server configurations that other JupyterLab exten
 
 ## Features
 
-- **Configuration Management**: Add, edit, and remove MCP server configurations through a dedicated settings panel in JupyterLab
-- **Multiple Server Types**: Support for both **stdio** (local executable) and **HTTP** (remote endpoint) MCP servers
+- **Configuration Management**: Add, edit, remove and disable MCP server configurations through a dedicated settings panel in JupyterLab
+- **Multiple Server Types**: Support for both **HTTP** (remote endpoint) and **stdio** (local executable) MCP servers
 - **Flexible Configuration**: Configure servers via:
   - JupyterLab Settings UI (persisted in browser)
   - JSON configuration files in Jupyter config directories (`~/.jupyter/mcp_servers.json`)
